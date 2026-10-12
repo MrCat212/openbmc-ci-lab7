@@ -1,65 +1,55 @@
 import os
 import pytest
 import requests
+
 from dotenv import load_dotenv
 
+
+# Загружаем настройки из .env, если файл существует
 load_dotenv()
 
 
-# ============================================================
-# Настройки OpenBMC Redfish API
-# ============================================================
-
-OPENBMC_URL = os.getenv(
-    "OPENBMC_URL",
+# Настройки подключения к OpenBMC
+REDFISH_URL = os.getenv(
+    "REDFISH_URL",
     "https://127.0.0.1:2443"
 )
 
-USERNAME = os.getenv(
-    "OPENBMC_USERNAME",
-    "root"
-)
+USERNAME = os.getenv("REDFISH_USERNAME")
+PASSWORD = os.getenv("REDFISH_PASSWORD")
 
-PASSWORD = os.getenv(
-    "OPENBMC_PASSWORD",
-    "0penBmc"
-)
-
-
-# Отключаем предупреждения HTTPS
-requests.packages.urllib3.disable_warnings()
-
-
-# ============================================================
-# Создание Redfish-сессии
-# ============================================================
 
 @pytest.fixture(scope="session")
 def redfish_session():
     """
-    Создаёт сессию для работы с OpenBMC Redfish API.
+    Создаёт HTTP-сессию для тестирования Redfish API.
+
+    Логин и пароль поступают из Jenkins Credentials
+    через переменные окружения.
     """
+
+    if not USERNAME or not PASSWORD:
+        pytest.fail(
+            "Не заданы REDFISH_USERNAME или REDFISH_PASSWORD"
+        )
 
     session = requests.Session()
 
-    session.auth = (
-        USERNAME,
-        PASSWORD
-    )
+    # Авторизация в OpenBMC
+    session.auth = (USERNAME, PASSWORD)
 
+    # Самоподписанный сертификат OpenBMC
     session.verify = False
 
-    return session
+    try:
+        yield session
+    finally:
+        session.close()
 
-
-# ============================================================
-# Базовый URL OpenBMC
-# ============================================================
 
 @pytest.fixture(scope="session")
 def openbmc_url():
     """
-    Возвращает адрес OpenBMC.
+    Возвращает базовый адрес Redfish API.
     """
-
-    return OPENBMC_URL
+    return REDFISH_URL
