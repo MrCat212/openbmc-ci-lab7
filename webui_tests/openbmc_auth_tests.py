@@ -467,17 +467,19 @@ def test_inventory_display():
 
         load_button.click()
 
-        WebDriverWait(
-            driver,
-            15
-        ).until(
-            lambda d: (
-                d.find_element(
-                    By.ID,
-                    "systemName"
-                ).text.strip() != ""
-            )
-        )
+        # Ждём завершения асинхронной загрузки, а не первого
+        # непустого текста: изначально в полях стоит "-".
+        def inventory_loaded(d):
+            status = d.find_element(By.ID, "status").text.strip()
+
+            if status.startswith("Ошибка"):
+                raise AssertionError(
+                    f"Не удалось загрузить инвентаризацию: {status}"
+                )
+
+            return status == "Инвентаризация успешно загружена"
+
+        WebDriverWait(driver, 30).until(inventory_loaded)
 
         system_name = driver.find_element(
             By.ID,
