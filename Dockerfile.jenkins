@@ -1,0 +1,18 @@
+FROM jenkins/jenkins:lts
+
+USER root
+
+# Утилиты, необходимые Pipeline:
+# Python/PyTest, QEMU, curl, ApacheBench и Firefox для Selenium
+RUN apt-get update && apt-get install -y \
+    python3 \
+    python3-pip \
+    python3-venv \
+    qemu-system-arm \
+    curl \
+    apache2-utils \
+    firefox-esr \
+    git \
+    && rm -rf /var/lib/apt/lists/*
+
+USER jenkins

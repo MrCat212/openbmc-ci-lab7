@@ -1,0 +1,280 @@
+<!DOCTYPE html>
+<html lang="ru">
+
+<head>
+    <meta charset="UTF-8">
+    <title>OpenBMC Power and Journal</title>
+</head>
+
+<body>
+
+    <!-- =====================================================
+         УПРАВЛЕНИЕ ПИТАНИЕМ И ПРОВЕРКА ЖУРНАЛА OPENBMC
+
+         Цепочка:
+
+         Selenium
+             ↓
+         journal.html
+             ↓
+         server.py
+             ↓
+         Redfish API
+             ↓
+         OpenBMC
+         ===================================================== -->
+
+    <h1>OpenBMC — проверка события в журнале</h1>
+
+
+    <!-- =====================================================
+         КНОПКА POWER ON
+         ===================================================== -->
+
+    <button id="powerOnButton" onclick="powerOn()">
+        Power On
+    </button>
+
+    <p id="powerStatus">
+        Команда ещё не отправлялась
+    </p>
+
+
+    <hr>
+
+
+    <!-- =====================================================
+         КНОПКА ЗАГРУЗКИ ЖУРНАЛА
+         ===================================================== -->
+
+    <button id="loadJournalButton" onclick="loadJournal()">
+        Загрузить журнал
+    </button>
+
+    <p id="journalStatus">
+        Журнал ещё не загружен
+    </p>
+
+
+    <!-- Общее количество записей Journal -->
+    <p>
+        Всего записей:
+        <span id="totalCount">-</span>
+    </p>
+
+
+    <!-- Количество найденных событий Power On -->
+    <p>
+        Событий Power On:
+        <span id="powerEntryCount">-</span>
+    </p>
+
+
+    <!-- =====================================================
+         ТАБЛИЦА СОБЫТИЙ
+         ===================================================== -->
+
+    <table border="1" id="journalTable">
+
+        <thead>
+
+            <tr>
+                <th>Время</th>
+                <th>Severity</th>
+                <th>Сообщение</th>
+            </tr>
+
+        </thead>
+
+        <!--
+            JavaScript будет самостоятельно добавлять
+            сюда реальные записи OpenBMC.
+        -->
+        <tbody id="journalBody">
+        </tbody>
+
+    </table>
+
+
+    <script>
+
+        // ====================================================
+        // ОТПРАВКА POWER ON
+        // ====================================================
+
+        async function powerOn() {
+
+            const status =
+                document.getElementById("powerStatus");
+
+            status.innerText =
+                "Отправка команды Power On...";
+
+            try {
+
+                // Отправляем запрос нашему server.py.
+                //
+                // server.py после этого отправит настоящий
+                // Redfish POST в OpenBMC.
+                const response = await fetch(
+                    "/api/power-on",
+                    {
+                        method: "POST"
+                    }
+                );
+
+                const data = await response.json();
+
+
+                if (data.success) {
+
+                    status.innerText =
+                        "Команда Power On отправлена в OpenBMC";
+
+                } else {
+
+                    status.innerText =
+                        "Ошибка: " + data.message;
+                }
+
+            }
+
+            catch (error) {
+
+                status.innerText =
+                    "Ошибка отправки команды";
+
+                console.error(error);
+            }
+        }
+
+
+        // ====================================================
+        // ЗАГРУЗКА BMC JOURNAL
+        // ====================================================
+
+        async function loadJournal() {
+
+            const status =
+                document.getElementById("journalStatus");
+
+            status.innerText =
+                "Загрузка журнала...";
+
+            try {
+
+                // Получаем журнал через server.py.
+                //
+                // Сам server.py читает настоящий
+                // Redfish BMC Journal.
+                const response = await fetch(
+                    "/api/journal"
+                );
+
+                const data = await response.json();
+
+
+                if (!data.success) {
+
+                    status.innerText =
+                        "Ошибка: " + data.message;
+
+                    return;
+                }
+
+
+                // ============================================
+                // ВЫВОД ОБЩЕГО КОЛИЧЕСТВА ЗАПИСЕЙ
+                // ============================================
+
+                document.getElementById(
+                    "totalCount"
+                ).innerText = data.total_count;
+
+
+                // ============================================
+                // ВЫВОД КОЛИЧЕСТВА POWER ON СОБЫТИЙ
+                // ============================================
+
+                document.getElementById(
+                    "powerEntryCount"
+                ).innerText =
+                    data.power_entries.length;
+
+
+                // ============================================
+                // ОЧИЩАЕМ СТАРУЮ ТАБЛИЦУ
+                // ============================================
+
+                const tableBody =
+                    document.getElementById(
+                        "journalBody"
+                    );
+
+                tableBody.innerHTML = "";
+
+
+                // ============================================
+                // ДОБАВЛЯЕМ РЕАЛЬНЫЕ ЗАПИСИ OPENBMC
+                // ============================================
+
+                for (const entry of data.power_entries) {
+
+                    const row =
+                        document.createElement("tr");
+
+
+                    // Время создания записи.
+                    const createdCell =
+                        document.createElement("td");
+
+                    createdCell.innerText =
+                        entry.created;
+
+
+                    // Уровень события.
+                    const severityCell =
+                        document.createElement("td");
+
+                    severityCell.innerText =
+                        entry.severity;
+
+
+                    // Текст события.
+                    const messageCell =
+                        document.createElement("td");
+
+                    messageCell.innerText =
+                        entry.message;
+
+
+                    row.appendChild(createdCell);
+                    row.appendChild(severityCell);
+                    row.appendChild(messageCell);
+
+                    tableBody.appendChild(row);
+                }
+
+
+                // ============================================
+                // ЖУРНАЛ УСПЕШНО ПОЛУЧЕН
+                // ============================================
+
+                status.innerText =
+                    "Журнал успешно загружен";
+            }
+
+            catch (error) {
+
+                status.innerText =
+                    "Ошибка получения журнала";
+
+                console.error(error);
+            }
+        }
+
+    </script>
+
+</body>
+
+</html>

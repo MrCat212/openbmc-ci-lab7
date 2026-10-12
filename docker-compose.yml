@@ -1,0 +1,25 @@
+services:
+  jenkins:
+    build:
+      context: .
+      dockerfile: Dockerfile.jenkins
+
+    container_name: openbmc-jenkins
+
+    ports:
+      - "8080:8080"
+      - "50000:50000"
+
+    volumes:
+      # Данные Jenkins сохраняются между перезапусками
+      - jenkins_home:/var/jenkins_home
+
+      # Готовый образ OpenBMC с нашего компьютера
+      - /home/mrcat/Downloads/archive/archive/openbmc/build/tmp/deploy/images/romulus:/opt/openbmc:ro
+
+    shm_size: "2gb"
+
+    restart: unless-stopped
+
+volumes:
+  jenkins_home:

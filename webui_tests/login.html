@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <title>OpenBMC Login</title>
+</head>
+
+<body>
+
+    <!--
+        Учебная Web UI страница для Selenium-тестов OpenBMC.
+
+        Эта страница НЕ проверяет пароль самостоятельно.
+        Логин и пароль отправляются нашему Python-серверу,
+        который проверяет их через настоящий OpenBMC.
+    -->
+
+    <h1>OpenBMC Web UI</h1>
+
+    <!-- Поле для ввода логина -->
+    <label for="username">Логин:</label>
+    <input
+        type="text"
+        id="username"
+        name="username"
+        placeholder="Введите логин"
+    >
+
+    <br><br>
+
+    <!-- Поле для ввода пароля -->
+    <label for="password">Пароль:</label>
+    <input
+        type="password"
+        id="password"
+        name="password"
+        placeholder="Введите пароль"
+    >
+
+    <br><br>
+
+    <!--
+        Selenium позже будет находить эту кнопку
+        по идентификатору loginButton.
+    -->
+    <button id="loginButton" onclick="login()">
+        Войти
+    </button>
+
+    <!-- Здесь появится результат авторизации -->
+    <p id="result"></p>
+
+
+    <script>
+
+        async function login() {
+
+            // Получаем данные из полей формы.
+            const username =
+                document.getElementById("username").value;
+
+            const password =
+                document.getElementById("password").value;
+
+
+            try {
+
+                /*
+                    Отправляем логин и пароль НАШЕМУ Python-серверу.
+
+                    Обрати внимание:
+                    браузер больше НЕ обращается напрямую
+                    к https://localhost:2443.
+
+                    Поэтому проблемы CORS и сертификата
+                    теперь обрабатывает server.py.
+                */
+                const response = await fetch(
+                    "/api/login",
+                    {
+                        method: "POST",
+
+                        headers: {
+                            "Content-Type": "application/json"
+                        },
+
+                        body: JSON.stringify({
+                            username: username,
+                            password: password
+                        })
+                    }
+                );
+
+
+                // Получаем JSON-ответ от server.py.
+                const data = await response.json();
+
+
+                /*
+                    server.py уже сходил в настоящий OpenBMC
+                    и получил результат авторизации.
+
+                    Просто показываем этот результат пользователю.
+                */
+                document.getElementById("result").innerText =
+                    data.message;
+
+
+            } catch (error) {
+
+                // Ошибка связи уже с нашим Python-сервером.
+                document.getElementById("result").innerText =
+                    "Ошибка связи с сервером";
+
+                console.error(error);
+            }
+        }
+
+    </script>
+
+</body>
+</html>

@@ -1,0 +1,212 @@
+<!DOCTYPE html>
+<html lang="ru">
+
+<head>
+    <meta charset="UTF-8">
+    <title>OpenBMC Inventory</title>
+</head>
+
+<body>
+
+    <!-- =====================================================
+         СТРАНИЦА ИНВЕНТАРИЗАЦИИ OPENBMC
+
+         Selenium работает с этой страницей.
+
+         Данные проходят по цепочке:
+
+         Selenium
+             ↓
+         inventory.html
+             ↓
+         server.py
+             ↓
+         Redfish API
+             ↓
+         настоящий OpenBMC
+         ===================================================== -->
+
+    <h1>OpenBMC — инвентаризация системы</h1>
+
+
+    <!-- Кнопка запуска получения данных -->
+    <button
+        id="loadInventoryButton"
+        onclick="loadInventory()"
+    >
+        Загрузить инвентаризацию
+    </button>
+
+
+    <!-- Здесь показываем состояние запроса -->
+    <p id="status">
+        Инвентаризация ещё не загружена
+    </p>
+
+
+    <!-- =====================================================
+         ТАБЛИЦА С ДАННЫМИ
+         ===================================================== -->
+
+    <table border="1">
+
+        <tr>
+            <th>Параметр</th>
+            <th>Значение</th>
+        </tr>
+
+        <tr>
+            <td>Имя системы</td>
+            <td id="systemName">-</td>
+        </tr>
+
+        <tr>
+            <td>Тип системы</td>
+            <td id="systemType">-</td>
+        </tr>
+
+        <tr>
+            <td>Состояние питания</td>
+            <td id="powerState">-</td>
+        </tr>
+
+        <tr>
+            <td>Состояние здоровья</td>
+            <td id="health">-</td>
+        </tr>
+
+        <tr>
+            <td>Количество процессоров</td>
+            <td id="processorCount">-</td>
+        </tr>
+
+        <tr>
+            <td>Оперативная память, GiB</td>
+            <td id="memoryGiB">-</td>
+        </tr>
+
+    </table>
+
+
+    <script>
+
+        // ====================================================
+        // ПОЛУЧЕНИЕ ИНВЕНТАРИЗАЦИИ
+        // ====================================================
+
+        async function loadInventory() {
+
+            const status =
+                document.getElementById("status");
+
+
+            status.innerText =
+                "Загрузка инвентаризации...";
+
+
+            try {
+
+                // Запрашиваем данные у нашего server.py.
+                //
+                // server.py сам обращается к настоящему
+                // OpenBMC через Redfish:
+                //
+                // /redfish/v1/Systems/system
+                const response = await fetch(
+                    "/api/inventory"
+                );
+
+
+                const data = await response.json();
+
+
+                // Если backend сообщил об ошибке,
+                // прекращаем обработку.
+                if (!data.success) {
+
+                    status.innerText =
+                        "Ошибка: " + data.message;
+
+                    return;
+                }
+
+
+                // ============================================
+                // ВАЖНЫЙ МОМЕНТ
+                // ============================================
+                //
+                // server.py возвращает JSON такого вида:
+                //
+                // {
+                //     "success": true,
+                //     "inventory": {
+                //         "system_name": "system",
+                //         "system_type": "Physical",
+                //         "power_state": "Off",
+                //         "health": "OK",
+                //         "processor_count": 0,
+                //         "memory_gib": 0.0
+                //     }
+                // }
+                //
+                // Поэтому реальные значения находятся
+                // внутри data.inventory.
+                // ============================================
+
+                const inventory = data.inventory;
+
+
+                document.getElementById(
+                    "systemName"
+                ).innerText =
+                    inventory.system_name;
+
+
+                document.getElementById(
+                    "systemType"
+                ).innerText =
+                    inventory.system_type;
+
+
+                document.getElementById(
+                    "powerState"
+                ).innerText =
+                    inventory.power_state;
+
+
+                document.getElementById(
+                    "health"
+                ).innerText =
+                    inventory.health;
+
+
+                document.getElementById(
+                    "processorCount"
+                ).innerText =
+                    inventory.processor_count;
+
+
+                document.getElementById(
+                    "memoryGiB"
+                ).innerText =
+                    inventory.memory_gib;
+
+
+                status.innerText =
+                    "Инвентаризация успешно загружена";
+            }
+
+            catch (error) {
+
+                status.innerText =
+                    "Ошибка получения инвентаризации";
+
+                console.error(error);
+            }
+        }
+
+    </script>
+
+</body>
+
+</html>

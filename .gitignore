@@ -1,0 +1,28 @@
+# Python
+venv/
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+
+# Секреты
+.env
+.env.*
+!.env.example
+
+# Selenium
+.selenium/
+
+# Jenkins и результаты тестирования
+artifacts/
+*.log
+*.pid
+
+# Образы OpenBMC
+*.mtd
+*.qcow2
+
+# Временные файлы
+.DS_Store
+*.swp
+*~
