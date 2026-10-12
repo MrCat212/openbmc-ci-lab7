@@ -240,7 +240,8 @@ pipeline {
             }
         }
 
-        // 6. Небольшой нагрузочный тест Redfish API.
+        // 6. Нагрузочный тест Redfish API: допускаем разный размер JSON,
+        // но реально неуспешные запросы и ответы HTTP != 2xx проваливают сборку.
         stage('Load Test') {
             steps {
                 withCredentials([
@@ -251,16 +252,45 @@ pipeline {
                     )
                 ]) {
                     sh '''
-                        set +e
-                        ab -n 50 -c 5 \
+                        set -eu
+
+                        # -l: Redfish JSON может менять размер между запросами.
+                        # Ошибки подключения и HTTP-ошибки всё равно проверяем.
+                        if ab -l -n 50 -c 5 \
                             -A "$OPENBMC_USERNAME:$OPENBMC_PASSWORD" \
                             "$OPENBMC_URL/redfish/v1/Systems/system" \
-                            > artifacts/load_test.txt 2>&1
-                        RESULT=$?
-                        set -e
+                            > artifacts/load_test.txt 2>&1; then
+                            :
+                        else
+                            cat artifacts/load_test.txt
+                            echo 'ERROR: ApacheBench exited with an error'
+                            exit 1
+                        fi
 
                         cat artifacts/load_test.txt
-                        exit "$RESULT"
+
+                        # ApacheBench может завершиться с кодом 0 даже при
+                        # Failed requests > 0. Поэтому проверяем его отчёт.
+                        awk '
+                            /^Complete requests:/ { complete = $3 }
+                            /^Failed requests:/ { failed = $3 }
+                            /^Non-2xx responses:/ { non2xx = $3 }
+                            END {
+                                if (complete != 50) {
+                                    print "FAIL: expected 50 requests, got " complete
+                                    exit 1
+                                }
+                                if (failed != 0) {
+                                    print "FAIL: ApacheBench reports " failed " failed requests"
+                                    exit 1
+                                }
+                                if (non2xx != 0) {
+                                    print "FAIL: ApacheBench reports " non2xx " non-2xx responses"
+                                    exit 1
+                                }
+                                print "PASS: 50 requests completed; no failed requests or non-2xx responses"
+                            }
+                        ' artifacts/load_test.txt
                     '''
                     archiveArtifacts artifacts: 'artifacts/load_test.txt'
                 }
